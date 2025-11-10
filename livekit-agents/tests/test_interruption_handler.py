@@ -1,22 +1,19 @@
 import pytest
 import pytest_asyncio
-
 from livekit.agents.extensions.interruption_handler import (
     InterruptionHandler,
     ASRResult,
     InterruptionDecision,
 )
-
 @pytest_asyncio.fixture
 async def handler():
     h = InterruptionHandler(
-        ignored_words=["uh", "umm", "hmm"],
+        ignored_words=["uh", "umm", "hmm", "ek minute"],
         interrupt_words=["stop", "wait"],
         min_confidence_for_filler=0.7,
         min_segment_ms_for_noise=150,
     )
     return h
-
 @pytest.mark.asyncio
 async def test_filler_ignored_when_speaking(handler):
     await handler.on_tts_start()
