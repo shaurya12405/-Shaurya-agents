@@ -3,19 +3,14 @@ import logging
 from dataclasses import dataclass
 from enum import Enum
 from typing import Iterable, Optional, Set, Callable, List
-
 logger = logging.getLogger(__name__)
-
-
 class InterruptionDecision(str, Enum):
     IGNORE = "IGNORE"            # ignore while agent is speaking
     INTERRUPT = "INTERRUPT"      # stop TTS and hand control to user
     USER_SPEECH = "USER_SPEECH"  # normal user speech when agent is silent
 
-
 @dataclass
 class ASRResult:
-    """Minimal ASR result abstraction to keep handler decoupled."""
     transcript: str
     confidence: Optional[float] = None
     duration_ms: Optional[int] = None
@@ -23,12 +18,11 @@ class ASRResult:
 
 
 class InterruptionHandler:
-    """Voice interruption logic built on top of LiveKit VAD+ASR."""
-
+    
     def __init__(
         self,
-        ignored_words: Iterable[str],
-        interrupt_words: Iterable[str] = ("stop", "wait", "hold", "pause", "no", "dont", "don't"),
+        ignored_words: Iterable[str] = ("uh", "umm", "hmm", "haan", "achha", "arre", "ok"),
+        interrupt_words: Iterable[str] = ("stop", "wait", "hold", "pause", "no", "dont", "don't", "ek minute"),
         min_confidence_for_filler: float = 0.7,
         min_segment_ms_for_noise: int = 150,
         stop_tts_callback: Optional[Callable[[], "asyncio.Future"]] = None,
@@ -40,9 +34,7 @@ class InterruptionHandler:
         self._agent_speaking: bool = False
         self._lock = asyncio.Lock()
         self._stop_tts = stop_tts_callback or (lambda: asyncio.get_event_loop().create_future())
-
-    # ---------------- Agent speaking flags ---------------- #
-
+    
     async def on_tts_start(self):
         async with self._lock:
             self._agent_speaking = True
@@ -52,17 +44,14 @@ class InterruptionHandler:
         async with self._lock:
             self._agent_speaking = False
         logger.debug("TTS ended -> agent_speaking=False")
-
-    # ---------------- Runtime update of filler words ---------------- #
-
+    
     async def update_ignored_words(self, new_words: Iterable[str]):
         words = {w.strip().lower() for w in new_words if w.strip()}
         async with self._lock:
             self._ignored_words = words
         logger.info("Updated ignored_words to %s", sorted(self._ignored_words))
 
-    # ---------------- Core ASR decision logic ---------------- #
-
+    # Core ASR decision logic 
     async def handle_asr(self, asr: ASRResult) -> InterruptionDecision:
         async with self._lock:
             agent_speaking = self._agent_speaking
@@ -91,7 +80,6 @@ class InterruptionHandler:
             filler_only=filler_only,
             command_present=command_present,
         )
-
         if agent_speaking:
 
             if filler_only and not low_conf:
